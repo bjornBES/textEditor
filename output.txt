@@ -1,0 +1,3 @@
+test h char bchar
+for
+void if

@@ -1,0 +1,19 @@
+Hello world
+Hello world
+
+char c = 'C'
+
+"Hello world"
+
+if (c == 'A')
+{
+
+}
+ char
+
+// test
+
+/* asdasd */ 
+
+
+
