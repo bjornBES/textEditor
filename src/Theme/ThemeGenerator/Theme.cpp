@@ -44,6 +44,31 @@ inline void from_json(const nlohmann::json& j, Settings& s) {
     if (j.contains("fontStyle"))  s.fontStyle = j.at("fontStyle").get<std::string>();
 }
 
+// TokenColor
+inline void from_json(const json& j, ThemeFile& t)
+{
+    t.name = j.at("name").get<std::string>();
+    t.type = j.at("type").get<std::string>();
+    if (j.contains("colors"))
+    {
+        t.colors = j.at("colors").get<std::unordered_map<std::string, std::string>>();
+    }
+    if (j.contains("semanticHighlighting"))
+    {
+        t.semanticHighlighting = j.at("semanticHighlighting").get<bool>();
+    }
+    t.tokenColors = j.at("tokenColors").get<std::vector<TokenColor>>();
+}
+
+inline void to_json(json& j, const ThemeFile& t)
+{
+    j["name"] = t.name;
+    j["type"] = t.type;
+    j["colors"] = t.colors;
+    j["semanticHighlighting"] = t.semanticHighlighting;
+    j["tokenColors"] = t.tokenColors;
+}
+
 void GetTheme(std::string themeFile, ThemeFile *ret)
 {
     std::ifstream inFile(themeFile);

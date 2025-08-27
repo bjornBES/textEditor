@@ -12,6 +12,7 @@ public:
     explicit Highlighter(QTextDocument *parent = nullptr);
 
     void UpdateHighlighting(QTextDocument *parent, QString path);
+    void UpdateWithCurSyntaxHighlighting(QTextDocument *parent);
 
     struct HighlightRule
     {

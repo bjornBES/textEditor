@@ -1,13 +1,13 @@
 #pragma once
 
-#include <iostream>
-#include <fstream>
 #include <string>
+#include <vector>
+#include <unordered_map>
+#include <optional>
 
 using namespace std;
 
-typedef struct Workspace
+struct Workspace
 {
-    string WorkspacePath = "/";
-} Workspace_t;
-
+    std::optional<std::string> test;
+};

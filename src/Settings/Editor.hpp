@@ -1,9 +1,12 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include <unordered_map>
+#include <optional>
 
-typedef struct Editor
+struct Editor
 {
-    std::string ExtensionsPath;
-    std::string ApplicationDataPath;
-} Editor_t;
+    std::optional<bool> InsertSpaces;
+    std::optional<int> TabSize;
+};

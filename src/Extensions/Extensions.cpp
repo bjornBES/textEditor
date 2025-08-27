@@ -4,6 +4,8 @@
 #include <iostream>
 #include <filesystem>
 #include <optional>
+#include <iostream>
+#include <fstream>
 
 #define MAXCACHESIZE 20
 
@@ -49,14 +51,14 @@ inline void from_json(const json &j, Contributes &c)
 
 ExtensionManifest *extensionCache[MAXCACHESIZE];
 
-void GetExtension(std::string fileExt, ExtensionManifest *ret)
+std::vector<std::string> GetExtensionPaths()
 {
     ProjectConfigs *projConfig = globalProgConfigs.get();
-    Config *config = projConfig->mainConfig;
 
     vector<std::string> extPaths = vector<std::string>();
 
-    std::string extPath = config->EditorSettings->ExtensionsPath;
+    std::string extPath = projConfig->ExtensionsPath;
+
     if (!fs::exists(extPath))
     {
         std::cerr << "Path does not exist: " << extPath << "\n";
@@ -98,14 +100,49 @@ void GetExtension(std::string fileExt, ExtensionManifest *ret)
     {
         std::cerr << "Filesystem error: " << e.what() << '\n';
     }
+    return extPaths;
+}
+
+std::vector<ExtensionManifest> GetAllExtensions()
+{
+    std::vector<ExtensionManifest> ret;
+    vector<std::string> extPaths = GetExtensionPaths();
+    try
+    {
+        for (std::string &path : extPaths)
+        {
+            std::ifstream infile(path);
+            json j;
+            infile >> j;
+
+            ExtensionManifest extension = j.template get<ExtensionManifest>();
+            ret.push_back(extension);
+
+            infile.close();
+        }
+    }
+    catch (const fs::filesystem_error &e)
+    {
+        std::cerr << "Filesystem error: " << e.what() << '\n';
+    }
+    return ret;
+}
+
+void GetExtension(std::string fileExt, ExtensionManifest *ret)
+{
+    ProjectConfigs *projConfig = globalProgConfigs.get();
+    Config *config = projConfig->mainConfig;
+
+    vector<std::string> extPaths = GetExtensionPaths();
 
     int lastOrder = -1;
     try
     {
         for (std::string &path : extPaths)
         {
-            ifstream file(path);
-            json j = json::parse(file);
+            std::ifstream infile(path);
+            json j;
+            infile >> j;
 
             // convert from JSON: copy each value from the JSON object
             // j["name"].template get<std::string>();
@@ -138,6 +175,7 @@ void GetExtension(std::string fileExt, ExtensionManifest *ret)
                     }
                 }
             }
+            infile.close();
         }
     }
     catch (const fs::filesystem_error &e)

@@ -48,10 +48,12 @@ struct ExtensionManifest {
     std::string description;
     std::string version;
     int order;
+    std::string main;
     Contributes contributes;
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ExtensionManifest, name, displayName, description, version, order, contributes)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ExtensionManifest, name, displayName, description, version, order, main, contributes)
 
 void GetExtension(std::string fileExt, ExtensionManifest *ret);
+std::vector<ExtensionManifest> GetAllExtensions();
 

@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Highlighter.hpp"
+#include "window/Highlighter.hpp"
 #include "window/Editors/CodeEditorWidget.hpp"
+#include "window/ProjectFileExplorer.hpp"
+#include "window/WindowTheme.hpp"
 
 #include <QApplication>
 #include <QMainWindow>
@@ -27,67 +29,50 @@
 #include <QComboBox>
 #include <QListWidget>
 #include <QPlainTextEdit>
+#include <QFileInfo>
+#include <QTextDocument>
 
-class DraggableTabWidget;
+extern Highlighter *highlighter;
 
 class TextEditorMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    TextEditorMainWindow(QWidget *parent = nullptr);
-
-protected:
-    void closeEvent(QCloseEvent *event) override;
-
-private slots:
-    void openFile();
-    void saveFile();
-    // void saveAsFile();
-    void openFolder();
-    void fileExplorerDoubleClicked(const QModelIndex &index);
-    void updateStatus(const QString &message);
-    void openCommonProject();
-    void closeTab(int index);
-    void changeTheme(const QString &theme);
+    explicit TextEditorMainWindow(QWidget *parent = nullptr);
 
 private:
-    void setupUi();
-    void createActions();
-    void setupConnections();
-    void loadFileToEditor(const QString &filePath);
-    bool maybeSave(CodeEditorWidget *editor);
-    void applyTheme(const QString &theme);
+    // Layout and UI
+    void setupLayout();
+    void setupMenu();
+    void setupPanels();
+    void setupStyling();
 
-    void addBottomPanelWidget(QWidget *widget, const QIcon &icon, const QString &label);
-    void addLeftPanelWidget(QWidget *widget, const QIcon &icon, const QString &label);
-    void addRightPanelWidget(QWidget *widget, const QIcon &icon, const QString &label);
+    // Editor
+    void openFileInEditor(const QString &path);
+    void openFileInTab(const QString &path);
+    void openFile();
+    void saveFile();
 
+    // File Explorer
+    void setupFileExplorer(const QString &projectPath = QString());
+    void onFileExplorerActivated(const QModelIndex &index);
 
-    QMenu *fileMenu;
-    QTabWidget *tabWidget;
-    QLabel *statusLabel;
-    QComboBox *themeSelector;
+    // Panels
+    QTabWidget *leftPanel;
+    QTabWidget *editorPanel;
+    QTabWidget *rightPanel;
+    QTabWidget *bottomPanel;
+    QSplitter *horizontalSplitter;
+    QToolBar *topBar;
 
-    DraggableTabWidget *editorPanel;
-    
-    QDockWidget *leftDock;
-    QDockWidget *rightDock;
-    QDockWidget *bottomDock;
+    // File Explorer
+    QDockWidget *fileExplorerDock = nullptr;
+    ProjectFileExplorer *fileExplorerWidget;
 
-    DraggableTabWidget *leftPanelTabs;
-    DraggableTabWidget *rightPanelTabs;
-    DraggableTabWidget *bottomPanelTabs;
+    // Status bar
+    QStatusBar *statusBar;
 
-    QFileSystemModel *fileModel;
-    QTreeView *fileExplorer;
+    WindowTheme *windowTheme;
 
-    QPlainTextEdit *terminalOutput;
-    QListWidget *logOutput;
-
-    QAction *actionOpenFile;
-    QAction *actionSaveFile;
-    QAction *actionOpenFolder;
-    QAction *actionExit;
-    QAction *actionOpenDefault;
 };

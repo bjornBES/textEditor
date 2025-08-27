@@ -42,7 +42,7 @@ void from_json(const json &j, Pattern &p)
 
 void to_json(json &j, const Pattern &p)
 {
-        if (p.name)
+    if (p.name)
         j["name"] = *p.name;
     if (p.include)
         j["include"] = *p.include;

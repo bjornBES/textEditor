@@ -1,328 +1,219 @@
 #include "MainEditorWindow.hpp"
-#include "window/Editors/CodeEditorWidget.hpp"
-#include "window/DraggableTabWidget.hpp"
 #include "ProjectConfigDir/ProjectConfigs.hpp"
-
-#include <QTabBar>
-#include <QTabWidget>
-#include <QStatusBar>
-#include <QDockWidget>
-#include <QToolBar>
-#include <QApplication>
-#include <QMainWindow>
-#include <QTextEdit>
+#include "Extensions/Extensions.hpp"
 #include <QFileDialog>
+#include <QTreeView>
 #include <QFile>
 #include <QTextStream>
+#include <QStatusBar>
 #include <QMessageBox>
-#include <QMenuBar>
-#include <QMenu>
-#include <QTreeView>
-#include <QFileSystemModel>
-#include <QSplitter>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include <QProcess>
+#include <QFileInfo>
 
+Highlighter *highlighter;
+const QString MainTitle = "CS Code";
 TextEditorMainWindow::TextEditorMainWindow(QWidget *parent) : QMainWindow(parent)
 {
-    setupUi();
-setupConnections();
+    setWindowTitle(MainTitle);
+    resize(1200, 800);
+
+    setupLayout();
+    setupMenu();
+
+    editorPanel->setTabsClosable(true);
+    connect(editorPanel, &QTabWidget::tabCloseRequested, this, [this](int index)
+            {
+        QWidget *w = editorPanel->widget(index);
+        editorPanel->removeTab(index);
+        delete w; });
+
+    highlighter = new Highlighter(nullptr);
+
+    std::vector<ExtensionManifest> Extensions = GetAllExtensions();
+    for (const ExtensionManifest &ext : Extensions)
+    {
+        QString pyPath = globalProgConfigs.get()->ExtensionsPath + PREFERRED_SEPARATOR + ext.name + PREFERRED_SEPARATOR + ext.main;
+        QStringList arguments{pyPath};
+        QProcess p;
+    }
 }
 
-void TextEditorMainWindow::setupUi()
+void TextEditorMainWindow::setupLayout()
 {
-    resize(1000, 700);
-    setWindowTitle("Text Editor Workspace");
+    setupPanels();
+    setupFileExplorer();
+    setupStyling();
+}
 
-    editorPanel = new DraggableTabWidget(this);
+void TextEditorMainWindow::setupMenu()
+{
+    QMenu *fileMenu = new QMenu("&File", this);
+    QAction *open = fileMenu->addAction("&Open File");
+    QAction *save = fileMenu->addAction("&Save File");
+    QAction *openFolder = fileMenu->addAction("Open &Folder");
+    QAction *openDir = fileMenu->addAction("Open &Directory");
+    QMenu *devMenu = new QMenu("&Dev", this);
+    QAction *openDefault = devMenu->addAction("&Open Default Project [DEBUG]");
 
-    leftPanelTabs = new DraggableTabWidget(this);
-    leftDock = new QDockWidget(this);
-    leftDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
-    leftDock->setWidget(leftPanelTabs);
-    leftDock->setMinimumWidth(200);
-    addDockWidget(Qt::LeftDockWidgetArea, leftDock);
+    connect(open, &QAction::triggered, this, &TextEditorMainWindow::openFile);
+    connect(save, &QAction::triggered, this, &TextEditorMainWindow::saveFile);
+    connect(openFolder, &QAction::triggered, this, [this]()
+            {
+        QString folder = QFileDialog::getExistingDirectory(this, "Select Project Folder");
+        if (!folder.isEmpty()) {
+            setupFileExplorer(folder);
+        } });
+    connect(openDefault, &QAction::triggered, this, [this]()
+            {
+        QString folder = QString("/mnt/D drive/projects/textEditor/project");
+        if (!folder.isEmpty()) {
+            setupFileExplorer(folder);
+        } });
+    connect(openDir, &QAction::triggered, this, [this]()
+            {
+        QString dirPath = QFileDialog::getExistingDirectory(this, "Open Directory");
+        if (!dirPath.isEmpty()) {
+            openFileInTab(dirPath);
+        } });
 
-    rightPanelTabs = new DraggableTabWidget(this);
-    rightDock = new QDockWidget(this);
-    rightDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
-    rightDock->setWidget(rightPanelTabs);
-    rightDock->setMinimumWidth(200);
-    addDockWidget(Qt::RightDockWidgetArea, rightDock);
+    QMenuBar *customMenuBar = new QMenuBar(this);
+    customMenuBar->addMenu(fileMenu);
+    customMenuBar->addMenu(devMenu);
+    setMenuBar(customMenuBar);
+}
 
-    bottomPanelTabs = new DraggableTabWidget(this);
-    bottomDock = new QDockWidget(this);
-    bottomDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
-    bottomDock->setWidget(bottomPanelTabs);
-    bottomDock->setMinimumWidth(200);
-    addDockWidget(Qt::BottomDockWidgetArea, bottomDock);
-    
-    fileModel = new QFileSystemModel(this);
-    fileModel->setRootPath(QDir::homePath());
-    fileModel->setFilter(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::AllDirs | QDir::Hidden);
-    
-    fileExplorer = new QTreeView;
-    fileExplorer->setModel(fileModel);
-    fileExplorer->setRootIndex(fileModel->index(QDir::homePath()));
-    fileExplorer->setHeaderHidden(true);
-    connect(fileExplorer, &QTreeView::doubleClicked, this, &TextEditorMainWindow::fileExplorerDoubleClicked);
-    
-    addLeftPanelWidget(fileExplorer, QIcon::fromTheme("folder"), "Explorer");
-    
+void TextEditorMainWindow::setupPanels()
+{
+    statusBar = new QStatusBar(this);
+    setStatusBar(statusBar);
+
+    leftPanel = new QTabWidget;
+    editorPanel = new QTabWidget;
+    rightPanel = new QTabWidget;
+    bottomPanel = new QTabWidget;
+
+    editorPanel->setTabsClosable(true);
+    bottomPanel->setMaximumHeight(200);
+
     /*
-    QSplitter *horizontalSplitter = new QSplitter(Qt::Horizontal, this);
-    QSplitter *verticalSplitter = new QSplitter(Qt::Vertical, this);
+    fileExplorerWidget = new ProjectFileExplorer;
+    leftPanel->addTab(fileExplorerWidget, "Explorer");
+
+    connect(fileExplorerWidget, &ProjectFileExplorer::fileActivated,
+    this, &TextEditorMainWindow::openFileInTab);
+
+    bottomPanel->addTab(new QLabel("Terminal"), "Terminal");
+    bottomPanel->addTab(new QLabel("Problems"), "Problems");
+    rightPanel->addTab(new QLabel("Git"), "Git");
     */
 
-    tabWidget = new QTabWidget;
-    tabWidget->setTabsClosable(true);
-    tabWidget->setMovable(true);
-    tabWidget->setAcceptDrops(false); // Prevent drag-drop into central editor panel
-    connect(tabWidget, &QTabWidget::tabCloseRequested, this, &TextEditorMainWindow::closeTab);
+    horizontalSplitter = new QSplitter(Qt::Horizontal);
+    horizontalSplitter->addWidget(leftPanel);
+    horizontalSplitter->addWidget(editorPanel);
+    horizontalSplitter->addWidget(rightPanel);
 
-    terminalOutput = new QPlainTextEdit;
-    terminalOutput->setReadOnly(true);
-    terminalOutput->appendPlainText("Welcome to the terminal...");
+    leftPanel->setMinimumWidth(200);
+    rightPanel->setMinimumWidth(200);
 
-    logOutput = new QListWidget;
-    logOutput->addItem("Log output...");
+    QWidget *central = new QWidget;
+    QVBoxLayout *mainLayout = new QVBoxLayout(central);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->addWidget(horizontalSplitter);
+    mainLayout->addWidget(bottomPanel);
 
-    addBottomPanelWidget(terminalOutput, QIcon::fromTheme("utilities-terminal"), "Terminal");
-    addBottomPanelWidget(logOutput, QIcon::fromTheme("view-list-details"), "Logs");
-
-    setCentralWidget(tabWidget);
-
-    // Tool bar
-    QToolBar *toolbar = addToolBar("Main Toolbar");
-    createActions();
-    toolbar->addAction(actionOpenFile);
-    toolbar->addAction(actionSaveFile);
-    toolbar->addAction(actionOpenFolder);
-
-
-    themeSelector = new QComboBox;
-    themeSelector->addItem("Light");
-    themeSelector->addItem("Dark");
-    connect(themeSelector, &QComboBox::currentTextChanged, this, &TextEditorMainWindow::changeTheme);
-    toolbar->addWidget(themeSelector);
-
-    // meun bar
-    fileMenu = menuBar()->addMenu("&File");
-
-    fileMenu->addAction(actionOpenFile);
-    fileMenu->addAction(actionSaveFile);
-    fileMenu->addAction(actionOpenFolder);
-    fileMenu->addAction(actionExit);
-
-    fileMenu = menuBar()->addMenu("&Dev");
-    fileMenu->addAction(actionOpenDefault);
-
-    // Status bar
-    statusLabel = new QLabel("Ready");
-    statusBar()->addWidget(statusLabel);
+    setCentralWidget(central);
 }
 
-void TextEditorMainWindow::setupConnections()
+void TextEditorMainWindow::setupStyling()
 {
-    // Setup signals and slots, e.g. to open files from explorer, update UI, etc.
-}
+    QApplication::setStyle("Fusion");
+    QPalette darkPalette;
+    darkPalette.setColor(QPalette::Window, QColor(30, 30, 30));
+    darkPalette.setColor(QPalette::Base, QColor(40, 44, 52));
+    darkPalette.setColor(QPalette::Text, QColor(220, 220, 220));
+    darkPalette.setColor(QPalette::Highlight, QColor(100, 100, 255));
+    QApplication::setPalette(darkPalette);
 
-void TextEditorMainWindow::addBottomPanelWidget(QWidget *widget, const QIcon &icon, const QString &label) {
-    bottomPanelTabs->addPanel(widget, label, icon);
-}
-void TextEditorMainWindow::addLeftPanelWidget(QWidget *widget, const QIcon &icon, const QString &label) {
-    leftPanelTabs->addPanel(widget, label, icon);
-}
-void TextEditorMainWindow::addRightPanelWidget(QWidget *widget, const QIcon &icon, const QString &label) {
-    rightPanelTabs->addPanel(widget, label, icon);
-}
-
-void TextEditorMainWindow::createActions()
-{
-    actionOpenFile = new QAction(QIcon::fromTheme("document-open"), "&Open File", this);
-    connect(actionOpenFile, &QAction::triggered, this, &TextEditorMainWindow::openFile);
-
-    actionSaveFile = new QAction(QIcon::fromTheme("document-save"), "&Save File", this);
-    connect(actionSaveFile, &QAction::triggered, this, &TextEditorMainWindow::saveFile);
-
-    actionOpenFolder = new QAction(QIcon::fromTheme("folder-open"), "&Open Folder", this);
-    connect(actionOpenFolder, &QAction::triggered, this, &TextEditorMainWindow::openFolder);
-
-    actionExit = new QAction("E&xit", this);
-    connect(actionExit, &QAction::triggered, this, &QWidget::close);
-
-    actionOpenDefault = new QAction("&OpenDefault", this);
-    connect(actionOpenDefault, &QAction::triggered, this, &TextEditorMainWindow::openCommonProject);
+    //     windowTheme = new WindowTheme();
 }
 
 void TextEditorMainWindow::openFile()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, "Open File", QDir::homePath());
-    if (!fileName.isEmpty())
-        loadFileToEditor(fileName);
-}
-
-void TextEditorMainWindow::openCommonProject()
-{
-    QString dir = QString("/mnt/D drive/projects/textEditor/project");
-    if (!dir.isEmpty())
+    QString path = QFileDialog::getOpenFileName(this, "Open File");
+    if (!path.isEmpty())
     {
-        fileModel->setRootPath(dir);
-        fileExplorer->setRootIndex(fileModel->index(dir));
-        globalProgConfigs.get()->SetWorkspacePath(dir.toStdString());
-        updateStatus("Workspace opened: " + dir);
+        openFileInTab(path);
     }
 }
 
-void TextEditorMainWindow::saveFile() {
-    if (QWidget *current = tabWidget->currentWidget()) {
-        CodeEditorWidget *editor = qobject_cast<CodeEditorWidget *>(current);
-        if (editor) {
-            QString filePath = editor->FileURL;
-            if (filePath.isEmpty()) {
-                filePath = QFileDialog::getSaveFileName(this, "Save File");
-                if (filePath.isEmpty())
-                    return; // User cancelled
-                editor->setProperty("filepath", filePath);
-                tabWidget->setTabText(tabWidget->indexOf(editor), QFileInfo(filePath).fileName());
-            }
-
-            QFile file(filePath);
-            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                QTextStream out(&file);
-                out << editor->toPlainText();
-                editor->document()->setModified(false);
-                updateStatus("File saved: " + filePath);
-            } else {
-                QMessageBox::warning(this, "Error", "Cannot save file.");
-            }
-        }
-    }
-}
-
-
-void TextEditorMainWindow::openFolder()
+void TextEditorMainWindow::saveFile()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, "Open Folder", QDir::homePath());
-    if (!dir.isEmpty())
+    CodeEditorWidget *editor = qobject_cast<CodeEditorWidget *>(editorPanel->currentWidget());
+    if (!editor)
+        return;
+
+    QString path = editor->FileURL;
+    if (path.isEmpty())
     {
-        fileModel->setRootPath(dir);
-        fileExplorer->setRootIndex(fileModel->index(dir));
-        globalProgConfigs.get()->SetWorkspacePath(dir.toStdString());
-        updateStatus("Workspace opened: " + dir);
+        path = QFileDialog::getSaveFileName(this, "Save File");
+        if (path.isEmpty())
+            return;
+        editor->FileURL = path;
+    }
+
+    QFile file(path);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        QTextStream out(&file);
+        out << editor->toPlainText();
+        statusBar->showMessage("Saved: " + path);
+        editorPanel->setTabText(editorPanel->currentIndex(), QFileInfo(path).fileName());
+    }
+    else
+    {
+        QMessageBox::warning(this, "Save Failed", "Could not save file.");
     }
 }
 
-void TextEditorMainWindow::fileExplorerDoubleClicked(const QModelIndex &index)
+void TextEditorMainWindow::openFileInTab(const QString &filePath)
 {
-    QString filePath = fileModel->filePath(index);
-    QFileInfo info(filePath);
-
-    if (info.isDir()) {
-        // Navigate into the directory
-        fileExplorer->setRootIndex(fileModel->index(filePath));
-        updateStatus("Navigated to folder: " + filePath);
-    } else if (info.isFile()) {
-        loadFileToEditor(filePath);
-    }
-}
-
-void TextEditorMainWindow::loadFileToEditor(const QString &filePath)
-{
-    // Check if file is already open
-    for (int i = 0; i < tabWidget->count(); ++i) {
-        CodeEditorWidget *existingEditor = qobject_cast<CodeEditorWidget *>(tabWidget->widget(i));
-        if (existingEditor && existingEditor->FileURL == filePath) {
-            tabWidget->setCurrentIndex(i);
+    for (int i = 0; i < editorPanel->count(); ++i)
+    {
+        CodeEditorWidget *ed = qobject_cast<CodeEditorWidget *>(editorPanel->widget(i));
+        if (ed && ed->FileURL == filePath)
+        {
+            editorPanel->setCurrentIndex(i);
             return;
         }
     }
 
     QFile file(filePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
     {
-        CodeEditorWidget *editor = new CodeEditorWidget(this);
-
-        tabWidget->addTab(editor, QFileInfo(filePath).fileName());
-        tabWidget->setCurrentWidget(editor);
-
-        editor->setPlainText(file.readAll());
-        editor->FileURL = filePath;
-
-        Highlighter *highlighter = new Highlighter(editor->document());
-        highlighter->UpdateHighlighting(editor->document(), filePath);
-
-        updateStatus("Opened file: " + filePath);
+        QMessageBox::warning(this, "Open Failed", "Cannot open file: " + filePath);
+        return;
     }
+
+    QTextStream in(&file);
+    CodeEditorWidget *editor = new CodeEditorWidget(editorPanel);
+    editorPanel->addTab(editor, QFileInfo(filePath).fileName());
+    editorPanel->setCurrentWidget(editor);
+
+    editor->setPlainText(in.readAll());
+    editor->FileURL = filePath;
+
+    highlighter = new Highlighter(editor->document());
+
+    highlighter->UpdateHighlighting(editor->document(), filePath);
 }
 
-void TextEditorMainWindow::closeTab(int index) {
-    QWidget *widget = tabWidget->widget(index);
-    CodeEditorWidget *editor = qobject_cast<CodeEditorWidget *>(widget);
-    if (editor && maybeSave(editor)) {
-        tabWidget->removeTab(index);
-        delete widget;
-    }
-}
-
-bool TextEditorMainWindow::maybeSave(CodeEditorWidget *editor) {
-    if (editor->isModified()) {
-        QMessageBox::StandardButton ret = QMessageBox::warning(this, "Unsaved Changes",
-                                                               "This document has unsaved changes. Save now?",
-                                                               QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
-        if (ret == QMessageBox::Save) {
-            QString path = editor->FileURL;
-            if (!path.isEmpty()) {
-                QFile file(path);
-                if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                    QTextStream out(&file);
-                    out << editor->toPlainText();
-                    return true;
-                }
-            }
-            return false;
-        } else if (ret == QMessageBox::Cancel) {
-            return false;
-        }
-    }
-    return true;
-}
-
-void TextEditorMainWindow::closeEvent(QCloseEvent *event) {
-    for (int i = 0; i < tabWidget->count(); ++i) {
-        CodeEditorWidget *editor = qobject_cast<CodeEditorWidget *>(tabWidget->widget(i));
-        if (editor && !maybeSave(editor)) {
-            event->ignore();
-            return;
-        }
-    }
-    event->accept();
-}
-
-void TextEditorMainWindow::changeTheme(const QString &theme) {
-    applyTheme(theme);
-}
-
-void TextEditorMainWindow::applyTheme(const QString &theme) {
-    QString styleSheet;
-    if (theme == "Dark") {
-        styleSheet = "CodeEditorWidget { background-color: #1e1e1e; color: #dcdcdc; }"
-                     "QTreeView { background-color: #2e2e2e; color: #dcdcdc; }"
-                     "QTabBar::tab { background: #3c3c3c; color: #dcdcdc; padding: 6px; }"
-                     "QTabBar::tab:selected { background: #555555; }";
-    } else {
-        styleSheet = "CodeEditorWidget { background-color: white; color: black; }"
-                     "QTreeView { background-color: white; color: black; }"
-                     "QTabBar::tab { background: lightgray; color: black; padding: 6px; }"
-                     "QTabBar::tab:selected { background: white; }";
-    }
-    qApp->setStyleSheet(styleSheet);
-}
-
-
-void TextEditorMainWindow::updateStatus(const QString &message)
+void TextEditorMainWindow::setupFileExplorer(const QString &projectPath)
 {
-    statusLabel->setText(message);
+    if (!projectPath.isEmpty())
+    {
+        globalProgConfigs.get()->SetWorkspacePath(projectPath.toStdString());
+        fileExplorerWidget->setRootPath(projectPath);
+    }
 }
 
 #include "MainEditorWindow.moc"

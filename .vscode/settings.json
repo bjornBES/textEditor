@@ -1,6 +1,12 @@
 {
     "cmake.sourceDirectory": "/mnt/D drive/projects/textEditor",
     "cmake.buildDirectory": "${workspaceFolder}/build",
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "workbench.list.openMode": "singleClick",
+    "workbench.localHistory.maxFileEntries": 50,
+    "workbench.localHistory.maxFileSize": 256,
+    "workbench.startupEditor": "none",
     "files.associations": {
         "*.embeddedhtml": "html",
         "*.s": "ca65",
@@ -90,6 +96,13 @@
         "qtextblock": "cpp",
         "qmessagebox": "cpp",
         "qmouseevent": "cpp",
-        "qstackedwidget": "cpp"
+        "qstackedwidget": "cpp",
+        "qfiledialog": "cpp",
+        "qfilesystemmodel": "cpp",
+        "qtreeview": "cpp",
+        "qtoolbar": "cpp",
+        "qstatusbar": "cpp",
+        "qpalette": "cpp",
+        "qfileinfo": "cpp"
     }
 }

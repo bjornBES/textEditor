@@ -7,7 +7,7 @@ char c = 'C'
 
 if (c == 'A')
 {
-
+	char A = 'A'
 }
  char
 

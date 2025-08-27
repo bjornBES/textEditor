@@ -28,9 +28,14 @@ struct TokenColor {
 struct ThemeFile {
     std::string name;
     std::string type;
+    std::unordered_map<std::string, std::string> colors;
+    /*
+    panel.forground = color
+    */
+    std::optional<bool> semanticHighlighting;
     std::vector<TokenColor> tokenColors;
 };
 // ThemeFile
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThemeFile, name, type, tokenColors)
+// NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ThemeFile, name, type, colors, semanticHighlighting, tokenColors)
 
 void GetTheme(std::string themeFile, ThemeFile *ret);

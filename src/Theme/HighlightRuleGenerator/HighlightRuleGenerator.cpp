@@ -44,7 +44,7 @@ std::vector<RuleSyntax> HighlightRuleGenerator::GetLanguageRules(std::string fil
 
     vector<ExtTheme> themes = extension.contributes.themes.value();
     vector<ExtGrammar> grammars = extension.contributes.grammars.value();
-    std::string basePath = config->EditorSettings->ExtensionsPath + PREFERRED_SEPARATOR + extension.name + PREFERRED_SEPARATOR;
+    std::string basePath = projConfig->ExtensionsPath + PREFERRED_SEPARATOR + extension.name + PREFERRED_SEPARATOR;
     for (const ExtTheme &theme : themes)
     {
         std::string themePath = basePath + theme.path;

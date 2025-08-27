@@ -4,6 +4,7 @@
 #include "Theme/HighlightRuleGenerator/HighlightRuleGenerator.hpp"
 #include <QColor>
 #include <vector>
+#include <iostream>
 
 Highlighter::Highlighter(QTextDocument *parent)
     : QSyntaxHighlighter(parent)
@@ -12,8 +13,10 @@ Highlighter::Highlighter(QTextDocument *parent)
 
 void Highlighter::UpdateHighlighting(QTextDocument *parent, QString path)
 {
+    std::cout << "UpdateHighlighting(" << path.toStdString() << ")" << std::endl;
     highlightingRules.clear();
     QString extension = "." + QFileInfo(path).suffix();
+    std::cout << "extension " << extension.toStdString() << std::endl;
 
     HighlightRuleGenerator highlightRuleGen;
 
@@ -33,11 +36,16 @@ void Highlighter::UpdateHighlighting(QTextDocument *parent, QString path)
         rule.priority = syntaxRule.priority;
         rule.format = keywordFormat;
 
-        std::cout << "syntaxRule = {" << syntaxRule.scope << ", " << syntaxRule.pattern << ", (" << fgcolor.A << ", " << fgcolor.G << ", " << fgcolor.B << ", " << fgcolor.A << "), (" << bgcolor.A << ", " << bgcolor.G << ", " << bgcolor.B << ", " << bgcolor.A << ")" << "}" << std::endl;
+        // std::cout << "syntaxRule = {" << syntaxRule.scope << ", " << syntaxRule.pattern << ", (" << fgcolor.A << ", " << fgcolor.G << ", " << fgcolor.B << ", " << fgcolor.A << "), (" << bgcolor.A << ", " << bgcolor.G << ", " << bgcolor.B << ", " << bgcolor.A << ")" << "}" << std::endl;
 
         highlightingRules.append(rule);
     }
 
+    rehighlight();
+}
+
+void Highlighter::UpdateWithCurSyntaxHighlighting(QTextDocument *parent)
+{
     rehighlight();
 }
 
