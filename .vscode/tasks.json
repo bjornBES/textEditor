@@ -1,32 +1,13 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "CMake Configure",
-      "type": "shell",
-      "command": "cmake",
-      "args": [
-        "-S", ".",             // Source directory
-        "-B", "build"          // Binary output directory
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake",
-      "args": [
-        "--build", "build"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      },
-      "problemMatcher": []
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "dotnet",
+			"task": "build ${workspaceFolder}/TextEditor.csproj",
+			"file": "${workspaceFolder}/TextEditor.csproj",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "build"
+		}
+	]
 }

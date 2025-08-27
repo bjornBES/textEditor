@@ -9,12 +9,12 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/bin/Debug/net9.0/textEditor.dll",
+            "program": "${workspaceFolder}/bin/Debug/net9.0/TextEditor",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "console": "internalConsole"
         }
-        
+
     ]
 }
