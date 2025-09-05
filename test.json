@@ -1,18 +1,12 @@
 {
-  "name": "textext",
-  "displayName": "Text Ext",
-  "description": null,
-  "version": "0",
-  "order": null,
-  "main": null,
-  "contributes": {
-    "grammar": null,
-    "language": {
-      "languageId": "Test",
-      "extensions": [
-        ".test"
-      ]
-    },
-    "theme": null
-  }
+  "backupWorkspaces": {
+    "workspace": [],
+    "folders": [
+      "file:///home/bjornbes/Desktop/FDriveDump/projects/project",
+      "file:///home/bjornbes/Desktop/FDriveDump/projects/textEditor"
+    ],
+    "emptyWindows": []
+  },
+  "theme": "normalDark",
+  "themeBackground": "#252526"
 }

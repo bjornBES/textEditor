@@ -1,4 +1,6 @@
 
+using System.Text.Json.Serialization;
+
 public class Themes
 {
     public string controlInt;
@@ -16,11 +18,15 @@ public class ElementColor
 #nullable disable
 public class ThemeFile
 {
-    public string name { get; set; }
-    public string type { get; set; }
-    public Dictionary<string, ElementColor> colors { get; set; }
-    public bool? semanticHighlighting { get; set; }
+    [JsonPropertyName("name")]
+    public string Name { get; set; }
+    [JsonPropertyName("type")]
+    public string Type { get; set; }
+    [JsonPropertyName("colors")]
+    public Dictionary<string, ElementColor> Colors { get; set; }
+    [JsonPropertyName("semanticHighlighting")]
+    public bool? SemanticHighlighting { get; set; }
 
-    // TODO make a type here
+    // TODO make a type here for tokenColors
     public object[] tokenColors { get; set; }
 }

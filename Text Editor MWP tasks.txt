@@ -1,0 +1,17 @@
+By MWP Completion, a User Should Be Able To:
+
+1. Open a folder/workspace and browse files in a tree view.
+2. Open a file in the editor tab and edit it with syntax highlighting.
+3. Save changes (with Save / Save As support).
+4. Undo/Redo edits without losing work.
+5. Find and replace text within the current file.
+6. See line numbers and current cursor position in the status bar.
+7. Switch between open files using tabs.
+8. Use the command palette to trigger editor commands.
+9. Use keyboard shortcuts (Ctrl+S, Ctrl+O, etc.).
+10. Load extensions manually from a folder that can add syntax highlighting and commands.
+11. Edit settings (theme, keybindings, workspace config) in JSON.
+12. Switch between light/dark theme from settings.
+13. Drag and drop a file from the system into the editor to open it.
+14. See basic notifications (e.g., file saved, error in extension).
+15. Check About dialog for version and app info.

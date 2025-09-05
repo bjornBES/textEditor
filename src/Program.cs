@@ -8,12 +8,16 @@ public class Program
 
     static int Main(string[] args)
     {
+        DebugWriter.Initialize(Console.Out);
         Thread serverThread = new Thread(new ThreadStart(StartServer));
         serverThread.Name = "Server Thread";
         serverThread.Start();
 
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
+
+    static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
+    .UsePlatformDetect().LogToTrace();
 
     static void StartServer()
     {
@@ -23,7 +27,4 @@ public class Program
 
         _ = server.StartAsync(cts.Token);
     }
-
-    static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
-    .UsePlatformDetect().LogToTrace();
 }

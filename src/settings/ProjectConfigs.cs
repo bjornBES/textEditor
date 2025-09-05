@@ -1,17 +1,35 @@
 
 global using static Program;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 public static class ProjectConfigs
 {
     public static ProjectConfigData ProjectConfig;
+    private static Dictionary<string, object> JsonCache = new Dictionary<string, object>();
 
-    public static string ProjectConfigPath;
     public static string WorkspacePath;
     public static string ThemesPath;
-    public static string GlobalConfigPath;
     public static string ExtensionsPath;
-    public static string EditorPreferencePath;  
+    public static string SnippetsPath;
+    public static string WorkspaceStoragePath;
+    public static string GlobalStoragePath;
+
+    public static string EditorPreferenceFilePath;
+    public static string RecentOpenPathsFilePath;
+    /// <summary>
+    /// project-specific settings
+    /// </summary>
+    public static string ProjectConfigFilePath;
+    /// <summary>
+    /// global settings
+    /// </summary>
+    public static string GlobalSettingsFilePath;
+    public static string KeybindingsFilePath;
+    public static string GlobalStorageFilePath;
+
+    public static ThemeFile CurrentTheme;
+
 
     public static void InitializeConfig()
     {
@@ -19,13 +37,37 @@ public static class ProjectConfigs
 
         string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ProjectName);
         DirectoryExists(appDataPath);
-        ThemesPath = Path.Combine(appDataPath, "themes");
+        string userProfilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "." + ProjectName);
+        DirectoryExists(userProfilePath);
+
+        string appDataUserPath = Path.Combine(appDataPath, "User");
+
+        ThemesPath = Path.Combine(userProfilePath, "themes");
         DirectoryExists(ThemesPath);
-        ExtensionsPath = Path.Combine(appDataPath, "extensions");
+        ExtensionsPath = Path.Combine(userProfilePath, "extensions");
         DirectoryExists(ExtensionsPath);
-        GlobalConfigPath = Path.Combine(appDataPath, "settings.json");
-        EditorPreferencePath = Path.Combine(appDataPath, "editorPreference.json");
-        
+        SnippetsPath = Path.Combine(appDataPath, "snippets");
+        DirectoryExists(SnippetsPath);
+        WorkspaceStoragePath = Path.Combine(appDataUserPath, "workspaceStorage");
+        DirectoryExists(WorkspaceStoragePath);
+        GlobalStoragePath = Path.Combine(appDataUserPath, "globalStorage");
+        DirectoryExists(GlobalStoragePath);
+
+        GlobalSettingsFilePath = FileExists(appDataPath, "settings.json");    // settings are in ~/.config/App/settings.json
+        EditorPreferenceFilePath = FileExists(appDataPath, "editorPreference.json");
+        KeybindingsFilePath = FileExists(appDataPath, "keybindings.json");
+        GlobalStorageFilePath = FileExists(GlobalStoragePath, "storage.json");
+    }
+
+    static string FileExists(string path1, string path2)
+    {
+        DirectoryExists(path1);
+        string result = Path.Combine(path1, path2);
+        if (!File.Exists(result))
+        {
+            File.Create(result).Close();
+        }
+        return result;
     }
 
     static void DirectoryExists(string path)
@@ -36,6 +78,36 @@ public static class ProjectConfigs
         }
     }
 
+    public static T ReadFile<T>(string path)
+    {
+        if (JsonCache.ContainsKey(path))
+        {
+            return (T)JsonCache[path];
+        }
+
+        if (!File.Exists(path)) return default;
+
+        string json = File.ReadAllText(path);
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        var obj = JsonSerializer.Deserialize<T>(json);
+        JsonCache.Add(path, obj);
+        return obj;
+    }
+
+    public static void WriteFile<T>(string path, T obj)
+    {
+        if (JsonCache.ContainsKey(path))
+        {
+            JsonCache.Remove(path);
+        }
+
+        if (!File.Exists(path)) return;
+
+        string json = JsonSerializer.Serialize(obj, new JsonSerializerOptions() { WriteIndented = true });
+        File.WriteAllText(path, json);
+        JsonCache.Add(path, obj);
+    }
+
     /// <summary>
     /// A workspace is the project in this case
     /// </summary>
@@ -43,30 +115,23 @@ public static class ProjectConfigs
     public static void SetWorkspace(string path)
     {
         WorkspacePath = path;
-        ProjectConfigPath = Path.Combine(WorkspacePath, ".editor");
-        DirectoryExists(ProjectConfigPath);
-        ProjectConfigPath = Path.Combine(ProjectConfigPath, "settings.json");
+        ProjectConfigFilePath = Path.Combine(WorkspacePath, ".editor");
+        DirectoryExists(ProjectConfigFilePath);
+        ProjectConfigFilePath = FileExists(ProjectConfigFilePath, "settings.json");
     }
 
-    public static void ReadConfigFile(ref ProjectConfigData config, bool GetUsers)
+    public static void ReadConfigFile(ref ProjectConfigData config)
     {
         string path = "";
 
-        if (GetUsers)
-        {
-            path = ProjectConfigPath;
-        }
-        else
-        {
-            path = GlobalConfigPath;
-        }
+
 
         string json = File.ReadAllText(path);
         config = JsonSerializer.Deserialize<ProjectConfigData>(json);
     }
     public static void SaveTheme(ThemeFile theme)
     {
-        string path = Path.Combine(ThemesPath, theme.name + ".json");
+        string path = Path.Combine(ThemesPath, theme.Name + ".json");
         string json = JsonSerializer.Serialize(theme, new JsonSerializerOptions() { WriteIndented = true });
         File.WriteAllText(path, json);
     }
@@ -75,8 +140,16 @@ public static class ProjectConfigs
 public class ProjectConfigData
 {
     public WorkspaceSettings WorkspaceSettings { get; set; }
-    public EditorSettings EditorSettings{ get; set; }
+    public EditorSettings EditorSettings { get; set; }
 
     public Dictionary<string, ExtensionManifest> Extensions { get; set; } = new Dictionary<string, ExtensionManifest>();
+}
+
+public class LocalProjectConfigData
+{
+    public WorkspaceSettings WorkspaceSettings { get; set; }
+    public EditorSettings EditorSettings { get; set; }
+
+
 }
 

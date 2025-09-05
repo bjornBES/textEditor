@@ -10,135 +10,15 @@ using Avalonia.Threading;
 using ExtensionLibGlobal;
 public class NotificationManager : StackPanel
 {
-    private int _selectedIndex = -1;
-    private StackPanel _stack;
-    private double _targetHeight;
 
-    private readonly Canvas _overlayCanvas;
-
-    // private NotificationManager(string titleText, string messageText, NotificationType type, List<string> options, Window owner)
     public NotificationManager()
     {
-        /*
-                // this.Width = 300;
-                // this.MinHeight = 80;
-                // this.MaxHeight = 180;
-                // this.CanResize = false;
-                // this.WindowStartupLocation = WindowStartupLocation.Manual;
-                // this.Background = Brushes.DimGray;
-                _stack = new StackPanel
-                {
-                    Margin = new Thickness(10),
-                    Spacing = 5
-                };
-
-                Grid grid = new Grid()
-                {
-                    IsVisible = true,
-                };
-                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-                grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-
-                TextBlock typeBox = new TextBlock()
-                {
-                    Text = GetTypeChar(type) + " ",
-                    Foreground = Brushes.White
-                };
-                Grid.SetColumn(typeBox, 0);
-                grid.Children.Add(typeBox);
-
-                TextBlock titleBox = new TextBlock
-                {
-                    Text = titleText,
-                    FontWeight = FontWeight.Bold,
-                    Foreground = Brushes.White,
-                    TextWrapping = TextWrapping.Wrap
-                };
-                Grid.SetColumn(titleBox, 1);
-                grid.Children.Add(titleBox);
-
-                _stack.Children.Add(grid);
-                if (!string.IsNullOrEmpty(messageText))
-                {
-                    TextBlock messageBox = new TextBlock
-                    {
-                        Text = messageText,
-                        Foreground = Brushes.White,
-                        TextWrapping = TextWrapping.Wrap
-                    };
-                    _stack.Children.Add(messageBox);
-                }
-
-                var buttonsPanel = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 5,
-                    Margin = new Thickness(0, 5, 0, 0)
-                };
-
-                for (int i = 0; i < options.Count; i++)
-                {
-                    int index = i; // capture for closure
-                    var btn = new Button
-                    {
-                        Content = options[i],
-                        FontSize = 12,
-                        Background = Brushes.LightGray
-                    };
-                    btn.Click += (s, e) =>
-                    {
-                        _selectedIndex = index;
-                        this.Close();
-                    };
-                    buttonsPanel.Children.Add(btn);
-                }
-
-                _stack.Children.Add(buttonsPanel);
-
-                this.Content = _stack;
-
-                this.LayoutUpdated += (_, _) =>
-                {
-                    _targetHeight = _stack.Bounds.Height + 20; // extra padding
-                    AnimateHeight(_targetHeight);
-                    this.Position = new PixelPoint(
-                        (int)(owner.Bounds.Width - this.Bounds.Width) + owner.Position.X,
-                        (int)(owner.Bounds.Height - this.Bounds.Height) + owner.Position.Y
-                    );
-                };
-        */
-
-Orientation = Orientation.Vertical;
+        Orientation = Orientation.Vertical;
         Spacing = 5;
-        HorizontalAlignment = HorizontalAlignment.Right;
-        VerticalAlignment = VerticalAlignment.Bottom;
+        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom;
         Margin = new Thickness(10);
-
     }
-    /*
-    private void AnimateHeight(double newHeight)
-    {
-        var animation = new Animation
-        {
-            Duration = TimeSpan.FromMilliseconds(200),
-            Easing = new CubicEaseOut(),
-            Children =
-            {
-                new KeyFrame
-                {
-                    Setters =
-                    {
-                        new Setter(Window.HeightProperty, newHeight)
-                    },
-                    Cue = new Cue(1d)
-                }
-            }
-        };
-
-        animation.RunAsync(this);
-    }
-    */
 
     private string GetTypeChar(NotificationType type)
     {
@@ -151,22 +31,16 @@ Orientation = Orientation.Vertical;
             _ => ""
         };
     }
-    /*
-        public static int ShowNotification(Window owner, string title, string message, NotificationType type, List<string> options)
-        {
-            var win = new NotificationManager(title, message, type, options, owner)
-            {
-                SystemDecorations = SystemDecorations.None,
-                Topmost = true,
-                ShowInTaskbar = false
-            };
 
-            // ShowDialog is synchronous and returns when window closes
-            win.ShowDialog(owner);
-            return win._selectedIndex;
-        }
-    */
- /// <summary>
+    public void QueueNotification(string title, string message, NotificationType type, Dictionary<string, Action> buttonActions)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            ShowNotification(title, message, type, buttonActions);
+            Commands.RunCommand("quickpalette.close");
+        });
+    }
+    /// <summary>
     /// Shows a synchronous notification inside the main window.
     /// </summary>
     /// <param name="title">Notification title</param>
@@ -175,8 +49,6 @@ Orientation = Orientation.Vertical;
     /// <param name="buttonActions">Dictionary of button text => action</param>
     public void ShowNotification(string title, string message, NotificationType type, Dictionary<string, Action> buttonActions)
     {
-        bool completed = false;
-
         var border = new Border
         {
             Background = Brushes.DimGray,
@@ -246,7 +118,6 @@ Orientation = Orientation.Vertical;
             {
                 action?.Invoke();
                 this.Children.Remove(border);
-                completed = true;
             };
 
             buttonsPanel.Children.Add(btn);
@@ -256,14 +127,5 @@ Orientation = Orientation.Vertical;
         border.Child = stack;
 
         this.Children.Add(border);
-/*
-        // Process synchronously
-        while (!completed)
-        {
-            Dispatcher.UIThread.RunJobs();
-            System.Threading.Thread.Sleep(10);
-        }
-*/
     }
-
 }

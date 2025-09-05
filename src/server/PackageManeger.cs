@@ -8,26 +8,23 @@ public class PackageManeger
 {
     public static async Task OnPackageReceived(string clientId, string packageId, byte[] data)
     {
-        Console.WriteLine($"[Main] Package from {clientId} with ID '{packageId}' received ({data.Length} bytes)");
+        DebugWriter.WriteLine("PackageMan", $"Package from {clientId} with ID '{packageId}' received ({data.Length} bytes)");
 
-        if (packageId == "cmd")
+        PackageTypes packageTypes = PackageId.FromIdToPackageType(packageId);
+
+        if (packageTypes == PackageTypes.Command)
         {
             string json = Encoding.UTF8.GetString(data);
             CommandPackage commandPackage = JsonSerializer.Deserialize<CommandPackage>(json);
             Commands.RunCommand(commandPackage.CommandId, commandPackage.Arguments);
         }
+        else if (packageTypes == PackageTypes.Addon)
+        {
+            string json = Encoding.UTF8.GetString(data);
+            AddonPackage addonPackage = JsonSerializer.Deserialize<AddonPackage>(json);
+            AddonManager.LoadAddon(clientId, addonPackage);
+        }
 
-        // Optional: decode if it's text
-            try
-            {
-                string decoded = Encoding.UTF8.GetString(data);
-                Console.WriteLine($"[Main] Content (UTF-8): {decoded}");
-            }
-            catch
-            {
-                Console.WriteLine("[Main] Could not decode as UTF-8 text.");
-            }
-        // Optional: store or forward...
-        // await File.WriteAllBytesAsync($"packages/{clientId}_{packageId}.bin", data);
+        await Task.CompletedTask;
     }
 }

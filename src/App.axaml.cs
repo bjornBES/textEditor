@@ -3,17 +3,20 @@ using Avalonia.Themes.Fluent;
 using Avalonia.Themes.Simple;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Styling;
+using Avalonia.Controls;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Media;
+using Avalonia.Data.Converters;
+using Avalonia.Controls.Presenters;
+using Avalonia.Data;
+using System.Globalization;
+
+
 public class App : Application
 {
-    public static StyleInclude AvaloniaEditFluent = new StyleInclude(new Uri("avares://AvaloniaEdit/"))
-        {
-            Source = new Uri("avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml")
-        };
     public override void Initialize()
     {
-        Styles.Add(new FluentTheme() { });
-        Styles.Add(AvaloniaEditFluent);
+        base.Initialize();
     }
 
     public override void OnFrameworkInitializationCompleted()

@@ -8,13 +8,15 @@ using AvaloniaEdit.Highlighting;
 
 public class Editor : Panel
 {
+    #nullable enable
+    public Action? askSaveFiles;
+    #nullable disable
     private TabControl tabControl;
     private List<EditorTab> openTabs;
-    string defaultBackgroundColor = "#1e1e1e";
 
     public Editor()
     {
-        Background = new SolidColorBrush(Color.Parse("#333333"));
+        Background = (IBrush)Application.Current.Resources["editor.Background"];
 
         KeyDown += OnKeyDown;
 
@@ -22,7 +24,7 @@ public class Editor : Panel
 
         tabControl = new TabControl
         {
-            Background = new SolidColorBrush(Color.Parse("#252526")),
+            Background = (IBrush)Application.Current.Resources["editor.tabs.Background"],
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch
         };
@@ -49,7 +51,23 @@ public class Editor : Panel
         }
 
         var tab = new EditorTab(filePath);
-        tab.BackgroundColor = defaultBackgroundColor;
+        tab.CloseTab += CloseTab;
+        openTabs.Add(tab);
+
+        List<TabItem> tabs = openTabs.Select(t => t.TabItem).ToList();
+        tabControl.Items.Clear();
+        foreach (var item in tabs)
+        {
+            tabControl.Items.Add(item);
+        }
+
+        tabControl.SelectedItem = tab.TabItem;
+    }
+
+    public void OpenNewFile()
+    {
+        var tab = new EditorTab();
+        tab.CloseTab += CloseTab;
         openTabs.Add(tab);
 
         List<TabItem> tabs = openTabs.Select(t => t.TabItem).ToList();
@@ -70,13 +88,43 @@ public class Editor : Panel
             current.Save();
         }
     }
-
-    public void CloseCurrent()
+    public void SaveAsCurrent()
     {
         var current = GetCurrentTab();
         if (current != null)
         {
-            openTabs.Remove(current);
+            current.SaveAs();
+        }
+    }
+
+    public void CloseAllTabs()
+    {
+        if (IsNotSaved(out _))
+        {
+            // TODO fix this to save before closing
+            askSaveFiles?.Invoke();
+            CloseAllTabs();
+        }
+        else
+        {
+            while (openTabs.Count > 0)
+            {
+                CloseCurrent();
+            }
+        }
+    }
+
+    public void CloseCurrent()
+    {
+        var current = GetCurrentTab();
+        CloseTab(current);
+    }
+
+    public void CloseTab(EditorTab tab)
+    {
+        if (tab != null)
+        {
+            openTabs.Remove(tab);
             List<TabItem> tabs = openTabs.Select(t => t.TabItem).ToList();
             tabControl.Items.Clear();
             foreach (var item in tabs)
@@ -92,12 +140,28 @@ public class Editor : Panel
         return openTabs.FirstOrDefault(t => t.TabItem == tabItem);
     }
 
-    public void ChangeDefaultBackgroundColor(string color)
+    public bool IsNotSaved(out EditorTab[] files)
     {
-        defaultBackgroundColor = color;
-        foreach (TextEditor editor in tabControl.Items)
+        List<EditorTab> filesList = new List<EditorTab>();
+        foreach (var tab in openTabs)
         {
-            editor.Background = new SolidColorBrush(Color.Parse(color));
+            if (tab.IsDirty)
+            {
+                filesList.Add(tab);
+            }
+        }
+
+        files = filesList.ToArray();
+        return filesList.Count > 0;
+    }
+
+    public void UpdateTheme()
+    {
+        Background = (IBrush)Application.Current.Resources["editor.Background"];
+        tabControl.Background = (IBrush)Application.Current.Resources["editor.tabs.Background"];
+        foreach (var tab in openTabs)
+        {
+            tab.UpdateTheme();
         }
     }
 }

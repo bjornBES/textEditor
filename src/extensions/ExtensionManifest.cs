@@ -8,7 +8,9 @@ public class ExtensionManifest
     [JsonPropertyName("displayName")]
     public string DisplayName { get; set; }
     [JsonPropertyName("description")]
+#nullable enable
     public string? Description { get; set; }
+#nullable disable
     [JsonPropertyName("version")]
     public string Version { get; set; }
     [JsonPropertyName("order")]
@@ -20,6 +22,7 @@ public class ExtensionManifest
     public Contributes Contributes { get; set; }
 }
 
+#nullable enable
 public class Contributes
 {
     [JsonPropertyName("grammar")]
@@ -29,6 +32,7 @@ public class Contributes
     [JsonPropertyName("theme")]
     public ExtTheme? Theme { get; set; }
 }
+#nullable disable
 
 public class ExtLanguage
 {

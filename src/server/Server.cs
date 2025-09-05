@@ -2,30 +2,26 @@
 using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Text;
-
-public class Server
-{
-    public static void StartServer()
-    {
-
-    }
-}
+using ExtensionLibGlobal;
 
 public class PipeServer
 {
     public delegate Task PackageReceivedHandler(string clientId, string packageId, byte[] data);
     public string PipeName { get; }
+    #nullable enable
     public event PackageReceivedHandler? OnPackageReceived;
     private readonly ConcurrentDictionary<string, ClientConnection> _clients = new();
 
     public PipeServer(string pipeName)
     {
         PipeName = pipeName;
+
+        Directory.GetFiles("logs", "debug_*.log").ToList().ForEach(File.Delete);
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        Console.WriteLine($"[Server] Listening on pipe '{PipeName}'...");
+        DebugWriter.WriteLine("Server", $"Listening on pipe '{PipeName}'...");
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -41,7 +37,7 @@ public class PipeServer
             {
                 // Wait for a client to connect before spawning handler
                 await pipeStream.WaitForConnectionAsync(cancellationToken);
-                Console.WriteLine("[Server] Client connected.");
+                DebugWriter.WriteLine("Server", "Client connected.");
 
                 // Handle the connected client in a background task
                 _ = Task.Run(() => HandleClientAsync(pipeStream, cancellationToken), cancellationToken);
@@ -52,7 +48,7 @@ public class PipeServer
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Server] Error accepting connection: {ex.Message}");
+                DebugWriter.WriteLine("Server", $"Error accepting connection: {ex.Message}");
                 pipeStream.Dispose();
             }
         }
@@ -63,24 +59,28 @@ public class PipeServer
     {
         try
         {
-            using var reader = new StreamReader(stream, leaveOpen: true);
-            using var writer = new StreamWriter(stream) { AutoFlush = true };
+            using var reader = new DebugStreamReader(stream, leaveOpen: true);
+            using var writer = new DebugStreamWriter(stream) { AutoFlush = true };
 
             string? clientId = await reader.ReadLineAsync();
+            reader.SetFile(clientId ?? "unknown");
+            writer.SetFile(clientId ?? "unknown");
             if (string.IsNullOrWhiteSpace(clientId))
             {
-                Console.WriteLine("[Server] Client did not send a clientId. Disconnecting.");
+                DebugWriter.WriteLine("Server", "Client did not send a clientId. Disconnecting.");
                 return;
             }
 
-            Console.WriteLine($"[Server] Client connected with ID: {clientId}");
+            DebugWriter.WriteLine("Server", $"Client connected with ID: {clientId}");
 
             var clientConnection = new ClientConnection(clientId, stream);
             _clients[clientId] = clientConnection;
 
-            Console.WriteLine($"[Server] Client connected with ID: {clientId}");
+            DebugWriter.WriteLine("Server", $"Client connected with ID: {clientId}");
 
             var binaryStream = stream;
+
+            clientConnection.SendLine("Server:READY");
 
             while (!cancellationToken.IsCancellationRequested && stream.IsConnected)
             {
@@ -88,18 +88,18 @@ public class PipeServer
                 if (header == null)
                     break;
 
-                Console.WriteLine($"[Server] [{clientId}] Header: {header}");
+                DebugWriter.WriteLine($"Server {clientId}", $"Header: {header}");
 
+                var parts = header.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (header.Equals("exit", StringComparison.OrdinalIgnoreCase))
                 {
                     _clients.TryRemove(clientId, out _);
                     break;
                 }
 
-                var parts = header.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length != 3 || !parts[0].Equals("Package", StringComparison.OrdinalIgnoreCase))
                 {
-                    await writer.WriteLineAsync("error: invalid header");
+                    _clients[clientId].ReceivedMessages.Enqueue(header);
                     continue;
                 }
 
@@ -124,6 +124,8 @@ public class PipeServer
                     totalRead += bytesRead;
                 }
 
+                reader.AddToLogFile($"{Encoding.UTF8.GetString(buffer)}");
+
                 if (OnPackageReceived != null)
                 {
                     await OnPackageReceived.Invoke(clientId, packageId, buffer);
@@ -132,11 +134,11 @@ public class PipeServer
                 await writer.WriteLineAsync("Received package");
             }
 
-            Console.WriteLine($"[Server] [{clientId}] Connection closed.");
+            DebugWriter.WriteLine($"Server {clientId}", "Connection closed.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Server] Error: {ex.Message}");
+            DebugWriter.WriteLine("Server", $"Error: {ex.Message}");
         }
         finally
         {
@@ -153,7 +155,7 @@ public class PipeServer
         }
         else
         {
-            Console.WriteLine($"[Server] Client '{clientId}' not found.");
+            DebugWriter.WriteLine("Server", $"Client '{clientId}' not found.");
             return false;
         }
     }
@@ -167,7 +169,7 @@ public class PipeServer
         }
         else
         {
-            Console.WriteLine($"[Server] Client '{clientId}' not found.");
+            DebugWriter.WriteLine("Server", $"Client '{clientId}' not found.");
             return false;
         }
     }
@@ -181,7 +183,41 @@ public class PipeServer
         }
         else
         {
-            Console.WriteLine($"[Server] Client '{clientId}' not found.");
+            DebugWriter.WriteLine("Server", $"Client '{clientId}' not found.");
+            return false;
+        }
+    }
+
+    public bool SendPackageToClient(string clientId, PackageTypes packageType, string message)
+    {
+        if (_clients.TryGetValue(clientId, out var client))
+        {
+            client.SendLine($"package {PackageId.PackageTypeToId(packageType)} {message.Length}");
+
+            DebugWriter.WriteLine("Server", $"waiting for ack");
+            string? ack = client.WaitForMessage();
+            if (ack != "ack")
+            {
+                DebugWriter.WriteLine("Server", $"did not receive ack, got '{ack}'");
+                return false;
+            }
+
+            DebugWriter.WriteLine("Server", $"sending data");
+            byte[] bytes = Encoding.UTF8.GetBytes(message);
+            client.Stream.Write(bytes, 0, bytes.Length);
+            client.Stream.Flush();
+
+            string? response = client.WaitForMessage();
+            if (!response.Equals("Received package"))
+            {
+                DebugWriter.WriteLine("Server", $"did not receive proper response, got '{response}'");
+                return false;
+            }
+            return true;
+        }
+        else
+        {
+            DebugWriter.WriteLine("Server", $"Client '{clientId}' not found.");
             return false;
         }
     }

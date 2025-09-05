@@ -3,10 +3,11 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using ExtensionLibGlobal;
 
 public static class Extensions
 {
-    static List<Process> extensionThreads = new List<Process>();
+    static List<ExtensionProcess> extensionThreads = new List<ExtensionProcess>();
     public static void StartExtensions()
     {
         string[] files = Directory.GetFiles(ProjectConfigs.ExtensionsPath, "Extension.json", SearchOption.AllDirectories);
@@ -35,28 +36,72 @@ public static class Extensions
         if (!string.IsNullOrEmpty(extension.Main))
         {
             string projectPath = Path.Combine(extPath, extension.Main);
+            string command = $"dotnet run --project \"{projectPath}\" -- {extension.Name}";
+
             ProcessStartInfo processInfo = new ProcessStartInfo()
             {
                 FileName = "dotnet",
                 Arguments = $"run --project \"{projectPath}\" -- {extension.Name}",
                 UseShellExecute = false,
-                RedirectStandardInput = true,
-                CreateNoWindow = false,
+                CreateNoWindow = false
             };
 
+            // processInfo = StartInTerminal(command, processInfo);
+
             Process process = Process.Start(processInfo);
-            extensionThreads.Add(process);
+
+            ExtensionProcess extensionProcess = new ExtensionProcess()
+            {
+                Extension = extension,
+                process = process,
+            };
+
+            extensionThreads.Add(extensionProcess);
         }
     }
 
+    private static ProcessStartInfo StartInTerminal(string command, ProcessStartInfo processInfo)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            processInfo.FileName = "cmd.exe";
+            processInfo.Arguments = $"/c start cmd.exe /k \"{command}\"";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            processInfo.FileName = "osascript";
+            processInfo.Arguments = $"-e 'tell application \"Terminal\" to do script \"{command}\"'";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            if (File.Exists("/usr/bin/gnome-terminal"))
+            {
+                processInfo.FileName = "gnome-terminal";
+                processInfo.Arguments = $"-- bash -ic \"{command}; exec bash\"";
+            }
+            else if (File.Exists("/usr/bin/xterm"))
+            {
+                processInfo.FileName = "xterm";
+                processInfo.Arguments = $"-hold -e {command}";
+            }
+            else
+            {
+                throw new PlatformNotSupportedException("No terminal emulator found");
+            }
+        }
+
+        processInfo.CreateNoWindow = false;
+        processInfo.UseShellExecute = false;
+        processInfo.RedirectStandardInput = true;
+        return processInfo;
+    }
+
+
     public static void CloseAllClients()
     {
-        foreach (Process process in extensionThreads)
+        foreach (ExtensionProcess process in extensionThreads)
         {
-            process.StandardInput.WriteLine("exit");
-            process.StandardInput.Flush();
-            process.StandardInput.Close();
-            process.WaitForExit();
+            WriteToClient(process.Extension.Name, "exit");
         }
     }
 
@@ -67,7 +112,7 @@ public static class Extensions
 
         if (!result)
         {
-            Console.WriteLine($"[EXT] Could not send {message} to {extensionId}");
+            DebugWriter.WriteLine("EXT", "Could not send {message} to {extensionId}");
         }
         return result;
     }
@@ -77,8 +122,38 @@ public static class Extensions
 
         if (!result)
         {
-            Console.WriteLine($"[EXT] Could not send bytes to {extensionId}");
+            DebugWriter.WriteLine("EXT", "Could not send bytes to {extensionId}");
         }
         return result;
     }
+    public static bool WritePackageToClient<T>(string extensionId, PackageTypes packageType, T obj)
+    {
+        string message = "";
+        if (packageType != PackageTypes.Message)
+        {
+            message = JsonSerializer.Serialize(obj);
+        }
+        else if (packageType == PackageTypes.Message && typeof(T) == typeof(string))
+        {
+            message = obj.ToString();
+        }
+        else
+        {
+            DebugWriter.WriteLine("EXT", "we are fucked");
+            DebugWriter.WriteLine("EXT", $"package type is not valid {packageType}");
+        }
+        bool result = server.SendPackageToClient(extensionId, packageType, message);
+
+        if (!result)
+        {
+            DebugWriter.WriteLine("EXT", "Could not send bytes to {extensionId}");
+        }
+        return result;
+    }
+}
+
+public class ExtensionProcess
+{
+    public ExtensionManifest Extension;
+    public Process process;
 }
